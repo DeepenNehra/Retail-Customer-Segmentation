@@ -1,0 +1,117 @@
+@reference "tailwindcss";
+/* Component-specific Custom CSS & Utilities */
+/* Almost everything handled by Tailwind, these are specific overrides/animations */
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes float-delayed {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float 8s ease-in-out infinite;
+  animation-delay: -3s;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 4s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+
+/* Dashboard layout resets */
+#root {
+  width: 100%;
+  max-width: 100%;
+  border: none;
+  min-height: 100vh;
+  margin: 0;
+  text-align: left;
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  @apply bg-white/10 backdrop-blur-md border border-white/20 shadow-xl;
+}
+
+.glass-card-dark {
+  background: rgba(30, 41, 59, 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Dark mode scrollbar for auth/landing */
+.dark-scroll ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+/* Recharts Overrides for clean dashboard feel */
+.recharts-default-tooltip {
+  border-radius: 8px !important;
+  border: none !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.dark-tooltip .recharts-default-tooltip {
+  background-color: rgba(15, 23, 42, 0.95) !important;
+  color: #fff !important;
+}
+
+.chart-container-title {
+  @apply text-sm font-semibold text-slate-800 mb-1;
+}
+
+.chart-container-subtitle {
+  @apply text-xs text-slate-500 mb-4;
+}
+
+/* Table overrides */
+.table-container th {
+  @apply bg-slate-50 text-slate-500 font-semibold text-xs py-3 px-4 text-left uppercase tracking-wider whitespace-nowrap;
+}
+
+.table-container td {
+  @apply px-4 py-3 text-sm text-slate-600 border-b border-slate-100;
+}
