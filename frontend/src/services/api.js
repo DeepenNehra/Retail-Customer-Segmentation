@@ -1,7 +1,11 @@
 import axios from 'axios';
 
 // Use environment variable for production, fallback to local for development
-const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+// For Render deployment, the env var is set at build time
+const BASE_URL = import.meta.env.VITE_API_URL || 
+                 (window.location.hostname === 'localhost' 
+                   ? "http://127.0.0.1:8000/api"
+                   : "https://segmentation-knight-backend.onrender.com/api");
 
 export const getDashboardData = async (datasetId = null) => {
   try {
