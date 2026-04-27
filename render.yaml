@@ -23,14 +23,15 @@ services:
     healthCheckPath: /api/
 
   # Frontend
-  - type: web
+  - type: static
     name: segmentation-knight-frontend
-    runtime: node
     buildCommand: "cd frontend && npm install && npm run build"
-    staticPublishPath: ./frontend/dist
+    publishPath: ./frontend/dist
     envVars:
       - key: NODE_VERSION
         value: 18.17.0
+      - key: VITE_API_URL
+        sync: false
 
 # Database
 databases:
