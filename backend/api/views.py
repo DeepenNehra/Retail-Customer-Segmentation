@@ -85,52 +85,76 @@ def upload_file(request):
     user = request.user
     
     try:
+        MAX_ROWS = 100000  # Sample limit for free-tier performance
+
         if filename.lower().endswith('.csv'):
             df = pd.read_csv(file)
         elif filename.lower().endswith(('.xls', '.xlsx')):
             df = pd.read_excel(file)
         else:
             return Response({"error": "Invalid file format. Please upload a CSV or Excel file."}, status=400)
-            
+
         required_columns = ['InvoiceDate', 'CustomerID', 'Quantity', 'UnitPrice', 'Description', 'InvoiceNo', 'Country']
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             return Response({"error": f"Missing required columns: {', '.join(missing_columns)}"}, status=400)
-        
+
+        # Convert date column early
+        df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
+
+        # Record original stats before any sampling
+        original_rows = len(df)
+        original_customers = df['CustomerID'].nunique()
+        was_sampled = original_rows > MAX_ROWS
+
+        # Sample large datasets to avoid timeouts on free-tier hosting
+        if was_sampled:
+            # Sample by unique customers (preserve distribution) rather than random rows
+            unique_customers = df['CustomerID'].unique()
+            sampled_customers = pd.Series(unique_customers).sample(
+                n=min(len(unique_customers), MAX_ROWS // 5),
+                random_state=42
+            )
+            df = df[df['CustomerID'].isin(sampled_customers)]
+
         # Save to user-specific directory
         user_dir = os.path.join("user_data", str(user.id))
         os.makedirs(user_dir, exist_ok=True)
-        
-        # Create database record first to get the ID
-        df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
+
+        # Create database record
         dataset = UploadedDataset.objects.create(
             user=user,
             filename=filename,
-            total_rows=len(df),
-            total_customers=df['CustomerID'].nunique(),
+            total_rows=original_rows,
+            total_customers=original_customers,
             date_range_start=df['InvoiceDate'].min(),
             date_range_end=df['InvoiceDate'].max()
         )
-        
-        # Save with dataset ID for historical access
+
+        # Save the (possibly sampled) dataframe
         csv_path_with_id = os.path.join(user_dir, f"dataset_{dataset.id}.csv")
         df.to_csv(csv_path_with_id, index=False)
-        
-        # Also save as the current/latest dataset
+
         csv_path = os.path.join(user_dir, "uploaded_data.csv")
         df.to_csv(csv_path, index=False)
-        
-        # Clear user-specific cache when new data is uploaded
-        cache_key = f'dashboard_data_cache_{user.id}'
-        cache.delete(cache_key)
-        cache_key_latest = f'dashboard_data_cache_{user.id}_latest'
-        cache.delete(cache_key_latest)
-        
+
+        # Clear user-specific cache
+        cache.delete(f'dashboard_data_cache_{user.id}')
+        cache.delete(f'dashboard_data_cache_{user.id}_latest')
+
+        message = "File uploaded and validated successfully"
+        if was_sampled:
+            message = (
+                f"File uploaded successfully. Dataset has {original_rows:,} rows — "
+                f"a representative sample of {len(df):,} rows was used for analysis."
+            )
+
         return Response({
-            "message": "File uploaded and validated successfully",
+            "message": message,
             "dataset_id": dataset.id,
-            "total_rows": dataset.total_rows,
-            "total_customers": dataset.total_customers
+            "total_rows": original_rows,
+            "total_customers": original_customers,
+            "sampled": was_sampled,
         })
     except Exception as e:
         return Response({"error": str(e)}, status=400)
