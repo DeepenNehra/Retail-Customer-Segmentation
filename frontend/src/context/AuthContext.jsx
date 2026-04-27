@@ -5,6 +5,12 @@ const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
+// Determine API URL based on environment
+const API_URL = import.meta.env.VITE_API_URL || 
+                (window.location.hostname === 'localhost' 
+                  ? "http://127.0.0.1:8000/api"
+                  : "https://segmentation-knight-backend.onrender.com/api");
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -22,7 +28,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchCurrentUser = async () => {
     try {
-      const response = await axios.get('http://127.0.0.1:8000/api/current-user/');
+      const response = await axios.get(`${API_URL}/current-user/`);
       setUser(response.data);
     } catch (error) {
       console.error('Failed to fetch user:', error);
@@ -33,7 +39,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (username, password) => {
-    const response = await axios.post('http://127.0.0.1:8000/api/login/', {
+    const response = await axios.post(`${API_URL}/login/`, {
       username,
       password
     });
@@ -46,7 +52,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (userData) => {
-    const response = await axios.post('http://127.0.0.1:8000/api/register/', userData);
+    const response = await axios.post(`${API_URL}/register/`, userData);
     const { token: newToken, user: newUser } = response.data;
     setToken(newToken);
     setUser(newUser);
