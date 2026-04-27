@@ -7,7 +7,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null);
-  const [apiUrl, setApiUrl] = useState("http://127.0.0.1:8000/api");
+  const [apiUrl, setApiUrl] = useState(import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api');
 
   useEffect(() => {
     getProfile()

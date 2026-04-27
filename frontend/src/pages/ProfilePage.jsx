@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import axios from "axios";
 import { User, Mail, Calendar, Clock, FileText, Download, Eye, Loader2, RefreshCw } from "lucide-react";
 
-const BASE_URL = "http://127.0.0.1:8000/api";
+const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 
 export default function ProfilePage() {
   const { user } = useAuth();
