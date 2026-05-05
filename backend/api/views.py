@@ -3,86 +3,35 @@ import json
 import os
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.authtoken.models import Token
-from django.contrib.auth import authenticate
+from rest_framework.permissions import AllowAny
 from django.contrib.auth.models import User
 from .ml_pipeline import run_pipeline
 from .models import UploadedDataset, Customer, SegmentationResult, UserProfile
-from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
+from .serializers import UserSerializer
 from django.core.cache import cache
 
-
-# 🔹 Authentication APIs
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def register(request):
-    """Register a new user"""
-    serializer = RegisterSerializer(data=request.data)
-    if serializer.is_valid():
-        user = serializer.save()
-        token, created = Token.objects.get_or_create(user=user)
-        user_serializer = UserSerializer(user)
-        return Response({
-            'token': token.key,
-            'user': user_serializer.data,
-            'message': 'User registered successfully'
-        }, status=201)
-    return Response(serializer.errors, status=400)
-
-
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def login(request):
-    """Login user and return token"""
-    serializer = LoginSerializer(data=request.data)
-    if serializer.is_valid():
-        username = serializer.validated_data['username']
-        password = serializer.validated_data['password']
-        user = authenticate(username=username, password=password)
-        
-        if user:
-            token, created = Token.objects.get_or_create(user=user)
-            user_serializer = UserSerializer(user)
-            return Response({
-                'token': token.key,
-                'user': user_serializer.data,
-                'message': 'Login successful'
-            })
-        return Response({'error': 'Invalid credentials'}, status=401)
-    return Response(serializer.errors, status=400)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def logout(request):
-    """Logout user by deleting token"""
-    try:
-        request.user.auth_token.delete()
-        return Response({'message': 'Logout successful'})
-    except Exception as e:
-        return Response({'error': str(e)}, status=400)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def current_user(request):
-    """Get current authenticated user"""
-    serializer = UserSerializer(request.user)
-    return Response(serializer.data)
+def get_firebase_user(request):
+    """Helper to get or create a Django user based on Firebase UID"""
+    firebase_uid = request.headers.get('X-User-ID')
+    if not firebase_uid:
+        return None
+    user, _ = User.objects.get_or_create(username=firebase_uid)
+    return user
 
 
 # 🔹 Upload API (User-specific)
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def upload_file(request):
+    user = get_firebase_user(request)
+    if not user:
+        return Response({"error": "Unauthorized. Missing X-User-ID header."}, status=401)
+
     if 'file' not in request.FILES:
         return Response({"error": "No file uploaded"}, status=400)
     
     file = request.FILES['file']
     filename = file.name
-    user = request.user
     
     try:
         MAX_ROWS = 100000  # Sample limit for free-tier performance
@@ -162,9 +111,11 @@ def upload_file(request):
 
 # 🔹 Dashboard API with User-specific Caching
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def dashboard_data(request):
-    user = request.user
+    user = get_firebase_user(request)
+    if not user:
+        return Response({"error": "Unauthorized. Missing X-User-ID header."}, status=401)
     dataset_id = request.GET.get('dataset_id', None)
     
     # If dataset_id is provided, load that specific dataset
@@ -251,9 +202,11 @@ def dashboard_data(request):
 
 # 🔹 Profile API
 @api_view(['GET', 'PUT'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def profile(request):
-    user = request.user
+    user = get_firebase_user(request)
+    if not user:
+        return Response({"error": "Unauthorized. Missing X-User-ID header."}, status=401)
     
     if request.method == 'GET':
         serializer = UserSerializer(user)
@@ -278,10 +231,12 @@ def profile(request):
 
 # 🔹 Get Upload History (User-specific)
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def upload_history(request):
     """Get list of user's uploaded datasets"""
-    user = request.user
+    user = get_firebase_user(request)
+    if not user:
+        return Response({"error": "Unauthorized. Missing X-User-ID header."}, status=401)
     datasets = UploadedDataset.objects.filter(user=user)[:10]  # Last 10 uploads
     data = [{
         'id': ds.id,
@@ -296,10 +251,12 @@ def upload_history(request):
 
 # 🔹 Get Customers by Segment (User-specific)
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def customers_by_segment(request, segment):
     """Get user's customers filtered by segment (VIP, Regular, At Risk)"""
-    user = request.user
+    user = get_firebase_user(request)
+    if not user:
+        return Response({"error": "Unauthorized. Missing X-User-ID header."}, status=401)
     latest_dataset = UploadedDataset.objects.filter(user=user).last()
     
     if not latest_dataset:

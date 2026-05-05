@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import axios from "axios";
+import { getUploadHistory } from "../services/api";
 import { User, Mail, Calendar, Clock, FileText, Download, Eye, Loader2, RefreshCw } from "lucide-react";
-
-const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -14,8 +12,8 @@ export default function ProfilePage() {
   const fetchUploadHistory = async () => {
     setHistoryLoading(true);
     try {
-      const res = await axios.get(`${BASE_URL}/upload-history/`);
-      setUploadHistory(res.data);
+      const data = await getUploadHistory();
+      setUploadHistory(data);
     } catch (err) {
       console.error("Failed to fetch upload history:", err);
     } finally {

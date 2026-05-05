@@ -32,7 +32,17 @@ export default function SignupPage() {
       await register(formData);
       navigate("/dashboard");
     } catch (err) {
-      setError(err.response?.data?.error || err.response?.data?.username?.[0] || "Registration failed. Please try again.");
+      console.error(err);
+      // Map Firebase errors to user-friendly messages
+      if (err.code === 'auth/email-already-in-use') {
+        setError("Email address is already in use.");
+      } else if (err.code === 'auth/invalid-email') {
+        setError("Invalid email address.");
+      } else if (err.code === 'auth/weak-password') {
+        setError("Password is too weak. Please use at least 6 characters.");
+      } else {
+        setError("Registration failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

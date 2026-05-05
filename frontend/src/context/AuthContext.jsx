@@ -1,75 +1,78 @@
 import { createContext, useState, useContext, useEffect } from 'react';
-import axios from 'axios';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
-// Determine API URL based on environment
-const API_URL = import.meta.env.VITE_API_URL || 
-                (window.location.hostname === 'localhost' 
-                  ? "http://127.0.0.1:8000/api"
-                  : "https://segmentation-knight-backend.onrender.com/api");
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
-  // Configure axios defaults
+  // Listen for auth state changes
   useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Token ${token}`;
-      fetchCurrentUser();
-    } else {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        // Fetch additional user details from Firestore if they exist
+        try {
+          const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+          if (userDoc.exists()) {
+            setUser({ ...currentUser, ...userDoc.data() });
+          } else {
+            setUser(currentUser);
+          }
+        } catch (error) {
+          console.error("Error fetching user data from Firestore:", error);
+          setUser(currentUser);
+        }
+      } else {
+        setUser(null);
+      }
       setLoading(false);
-    }
-  }, [token]);
-
-  const fetchCurrentUser = async () => {
-    try {
-      const response = await axios.get(`${API_URL}/current-user/`);
-      setUser(response.data);
-    } catch (error) {
-      console.error('Failed to fetch user:', error);
-      logout();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const login = async (username, password) => {
-    const response = await axios.post(`${API_URL}/login/`, {
-      username,
-      password
     });
-    const { token: newToken, user: userData } = response.data;
-    setToken(newToken);
-    setUser(userData);
-    localStorage.setItem('token', newToken);
-    axios.defaults.headers.common['Authorization'] = `Token ${newToken}`;
-    return response.data;
+
+    return unsubscribe;
+  }, []);
+
+  const login = async (email, password) => {
+    // Note: Firebase uses email, not username for standard authentication
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
   };
 
   const register = async (userData) => {
-    const response = await axios.post(`${API_URL}/register/`, userData);
-    const { token: newToken, user: newUser } = response.data;
-    setToken(newToken);
-    setUser(newUser);
-    localStorage.setItem('token', newToken);
-    axios.defaults.headers.common['Authorization'] = `Token ${newToken}`;
-    return response.data;
+    const { email, password, username, first_name, last_name } = userData;
+    
+    // Create user in Firebase Auth
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    // Store additional user data in Firestore
+    await setDoc(doc(db, "users", user.uid), {
+      uid: user.uid,
+      email: user.email,
+      username: username || "",
+      first_name: first_name || "",
+      last_name: last_name || "",
+      createdAt: serverTimestamp()
+    });
+
+    return user;
   };
 
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
+  const logout = async () => {
+    await signOut(auth);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
