@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  # ─── PostgreSQL Database ──────────────────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: segmentation_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: segmentation_db
+      POSTGRES_USER: segmentation_user
+      POSTGRES_PASSWORD: segmentation_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U segmentation_user -d segmentation_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Django Backend ───────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: segmentation_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgres://segmentation_user:segmentation_pass@db:5432/segmentation_db
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - user_data:/app/user_data
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+
+volumes:
+  postgres_data:
+    driver: local
+  user_data:
+    driver: local
