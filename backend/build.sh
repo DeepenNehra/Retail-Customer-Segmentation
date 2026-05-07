@@ -8,4 +8,4 @@ cd backend
 pip install -r requirements.txt
 
 python manage.py collectstatic --no-input
-python manage.py migrate
+# migrate runs at startup (startCommand) so the internal DB hostname is resolvable
