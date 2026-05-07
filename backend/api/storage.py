@@ -4,6 +4,7 @@ Solves Render's ephemeral filesystem issue: files uploaded here survive server r
 """
 import os
 import io
+from typing import Optional
 import pandas as pd
 
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
@@ -62,7 +63,7 @@ def upload_csv(user_id, dataset_id, df: pd.DataFrame) -> bool:
         return False
 
 
-def download_csv(user_id, dataset_id) -> pd.DataFrame | None:
+def download_csv(user_id, dataset_id) -> Optional[pd.DataFrame]:
     """
     Download a CSV file from Supabase Storage and return as a DataFrame.
     Called when the local disk file is missing (e.g. after a server restart).

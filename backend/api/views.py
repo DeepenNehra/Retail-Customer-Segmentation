@@ -152,13 +152,23 @@ def dashboard_data(request):
         else:
             # Local file missing (server restarted) — try Supabase Storage
             print(f"[Dashboard] Local CSV not found at {csv_path}, trying Supabase...")
-            df = download_csv(user.id, dataset_id or "latest")
-            if df is None:
-                # Try downloading the specific dataset if dataset_id provided
-                if dataset_id:
-                    df = download_csv(user.id, dataset_id)
+
+            # Resolve the actual dataset_id to download from Supabase
+            supabase_dataset_id = dataset_id
+            if not supabase_dataset_id:
+                # No specific dataset requested — find the user's latest upload
+                latest = UploadedDataset.objects.filter(user=user).order_by('-uploaded_at').first()
+                if latest:
+                    supabase_dataset_id = latest.id
+
+            if supabase_dataset_id:
+                df = download_csv(user.id, supabase_dataset_id)
+            else:
+                df = None
+
             if df is None:
                 return Response({"error": "No data uploaded yet. Please upload a file first."}, status=400)
+
             # Cache locally for this session to speed up subsequent requests
             os.makedirs(os.path.dirname(csv_path), exist_ok=True)
             df.to_csv(csv_path, index=False)
