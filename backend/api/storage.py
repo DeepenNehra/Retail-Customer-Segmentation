@@ -7,6 +7,11 @@ import io
 from typing import Optional
 import pandas as pd
 
+try:
+    from supabase import create_client  # type: ignore[import-untyped]
+except ImportError:
+    create_client = None  # type: ignore
+
 SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
 SUPABASE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
 BUCKET_NAME = 'datasets'
@@ -17,8 +22,10 @@ def _get_client():
     if not SUPABASE_URL or not SUPABASE_KEY:
         print("[Supabase] Not configured — skipping cloud storage.")
         return None
+    if create_client is None:
+        print("[Supabase] supabase package not installed.")
+        return None
     try:
-        from supabase import create_client
         return create_client(SUPABASE_URL, SUPABASE_KEY)
     except Exception as e:
         print(f"[Supabase] Failed to create client: {e}")
