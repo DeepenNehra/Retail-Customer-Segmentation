@@ -9,6 +9,7 @@ from .ml_pipeline import run_pipeline
 from .models import UploadedDataset, Customer, SegmentationResult, UserProfile
 from .serializers import UserSerializer
 from django.core.cache import cache
+from .storage import upload_csv, download_csv
 
 def get_firebase_user(request):
     """Helper to get or create a Django user based on Firebase UID"""
@@ -87,6 +88,9 @@ def upload_file(request):
         csv_path = os.path.join(user_dir, "uploaded_data.csv")
         df.to_csv(csv_path, index=False)
 
+        # ── Upload to Supabase Storage for persistence across server restarts ──
+        upload_csv(user.id, dataset.id, df)
+
         # Clear user-specific cache
         cache.delete(f'dashboard_data_cache_{user.id}')
         cache.delete(f'dashboard_data_cache_{user.id}_latest')
@@ -143,9 +147,23 @@ def dashboard_data(request):
         return Response(cached_data)
     
     try:
-        df = pd.read_csv(csv_path)
-    except FileNotFoundError:
-        return Response({"error": "No data uploaded yet. Please upload a file first."}, status=400)
+        if os.path.exists(csv_path):
+            df = pd.read_csv(csv_path)
+        else:
+            # Local file missing (server restarted) — try Supabase Storage
+            print(f"[Dashboard] Local CSV not found at {csv_path}, trying Supabase...")
+            df = download_csv(user.id, dataset_id or "latest")
+            if df is None:
+                # Try downloading the specific dataset if dataset_id provided
+                if dataset_id:
+                    df = download_csv(user.id, dataset_id)
+            if df is None:
+                return Response({"error": "No data uploaded yet. Please upload a file first."}, status=400)
+            # Cache locally for this session to speed up subsequent requests
+            os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+            df.to_csv(csv_path, index=False)
+    except Exception as e:
+        return Response({"error": f"Failed to read dataset: {str(e)}"}, status=400)
 
     try:
         # Run ML pipeline

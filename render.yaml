@@ -3,8 +3,9 @@ services:
   - type: web
     name: segmentation-knight-backend
     runtime: python
-    buildCommand: "cd backend && pip install -r requirements.txt && python manage.py collectstatic --noinput"
-    startCommand: "cd backend && python manage.py migrate --noinput && gunicorn backend.wsgi:application"
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate"
+    startCommand: "gunicorn backend.wsgi:application"
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -20,14 +21,19 @@ services:
         fromDatabase:
           name: segmentation-knight-db
           property: connectionString
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
     healthCheckPath: /api/
 
   # Frontend
   - type: web
     name: segmentation-knight-frontend
     runtime: node
-    buildCommand: "cd frontend && npm install && npm run build && npm install -g serve"
-    startCommand: "cd frontend && serve -s dist -p $PORT"
+    rootDir: frontend
+    buildCommand: "npm install && npm run build && npm install -g serve"
+    startCommand: "serve -s dist -p $PORT"
     envVars:
       - key: NODE_VERSION
         value: 18.17.0
